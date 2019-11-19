@@ -1,5 +1,7 @@
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -18,11 +20,62 @@ import org.xml.sax.SAXException;
 public class Main {
     private static boolean isSingle;
     private static String fileName;
+    private static String name;
 
     public static void main(String[] args) {
         fileName = args[0];
-        if (args[1].equals("single")) isSingle = true;
-        else if (args[1].equals("multi")) isSingle = false;
+        // Get only name of file excluding path
+        name = fileName
+                .replaceAll("\\\\\\^\\\\", "")
+                .replaceAll("\\\\\\^/", "");
+        int s;
+//        String osName = System.getProperty("os.name").toLowerCase();
+
+        Process proc;
+        try {
+            // Clean logs
+            proc = Runtime.getRuntime()
+                    .exec("cd /DATA/Results/; rm –f ./*.jtl: rm –f ./*.csv");
+            proc.waitFor();
+            proc.destroy();
+
+            changeTestType("single");
+
+            // Start oneThread test
+            proc = Runtime.getRuntime()
+                    .exec("nohup jmeter -n -t " + name);
+            proc.waitFor();
+            proc.destroy();
+
+            // Check logs for errors
+            proc = Runtime.getRuntime()
+                    .exec("cat nohup.out | egrep “Err:.+Active: 0” | tail –n 1 | awk '{print $15}'");
+            BufferedReader br = new BufferedReader(
+                    new InputStreamReader(proc.getInputStream()));
+            s = Integer.parseInt(br.readLine());
+            proc.waitFor();
+            proc.destroy();
+
+            // Run multiThread test
+            if (s == 0) {
+                changeTestType("single");
+
+                proc = Runtime.getRuntime()
+                        .exec("nohup jmeter -n -t " + name + " -r &");
+                proc.waitFor();
+                proc.destroy();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void changeTestType(String testType) {
+
+        if (testType.equals("single")) isSingle = true;
+        else if (testType.equals("multi")) isSingle = false;
         else try {
                 throw new Exception();
             } catch (Exception e) {
@@ -33,8 +86,6 @@ public class Main {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             DocumentBuilder db = dbf.newDocumentBuilder();
             Document doc = db.parse(fileName);
-
-            Node jmeterTestPlan = doc.getFirstChild();
 
             Node hashTree = doc.getElementsByTagName("hashTree").item(1);
 
@@ -57,11 +108,8 @@ public class Main {
                         for (int j = 0; j < list1.getLength(); j++) {
                             Node node1 = list1.item(j);
                             if ("stringProp".equals(node1.getNodeName())) {
-                                String name = fileName
-                                        .replaceAll("\\\\\\^\\\\","")
-                                        .replaceAll("\\\\\\^/","");
                                 String name1 = name.substring(0, name.length() - 4);
-                                node1.setTextContent("/DATA/Results/${__strReplace(" + name1 + "_" + args[1] + ",&quot;.jmx&quot;,&quot;&quot;,)}.xml");
+                                node1.setTextContent("/DATA/Results/${__strReplace(" + name1 + "_" + testType + ",&quot;.jmx&quot;,&quot;&quot;,)}.xml");
                             }
                         }
                     }
