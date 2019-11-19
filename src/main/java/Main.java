@@ -58,7 +58,7 @@ public class Main {
 
             // Run multiThread test
             if (s == 0) {
-                changeTestType("single");
+                changeTestType("multi");
 
                 proc = Runtime.getRuntime()
                         .exec("nohup jmeter -n -t " + name + " -r &");
