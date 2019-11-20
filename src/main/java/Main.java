@@ -11,6 +11,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -29,14 +30,14 @@ public class Main {
                 .replaceAll("\\\\\\^\\\\", "")
                 .replaceAll("\\\\\\^/", "");
 
-        if (args[1] == null) {
+        if (args.length == 1) {
             // Linux test run
             startTest();
         } else changeTestType(args[1]);
 //        String osName = System.getProperty("os.name").toLowerCase();
     }
 
-    private static void changeTestType(String testType) {
+    private static void changeTestType(@NotNull String testType) {
 
         if (testType.equals("single")) isSingle = true;
         else if (testType.equals("multi")) isSingle = false;
@@ -104,7 +105,7 @@ public class Main {
         try {
             // Clean logs
             proc = Runtime.getRuntime()
-                    .exec("cd /DATA/Results/; rm –f ./*.jtl: rm –f ./*.csv");
+                    .exec("rm –f /DATA/Results/*.jtl; rm –f /DATA/Results/*.csv");
             proc.waitFor();
             proc.destroy();
 
@@ -118,7 +119,7 @@ public class Main {
 
             // Check logs for errors
             proc = Runtime.getRuntime()
-                    .exec("cat nohup.out | egrep \"Err:.+Active: 0\" | tail –n 1 | awk '{print $15}'");
+                    .exec("cat /DATA/Results/Testplan/nohup.out | egrep \"Err:.+Active: 0\" | tail –n 1 | awk '{print $15}'");
             BufferedReader br = new BufferedReader(
                     new InputStreamReader(proc.getInputStream()));
             int s = Integer.parseInt(br.readLine());
@@ -141,7 +142,7 @@ public class Main {
         }
     }
 
-    private static void changeAttr(Node node, boolean isSingle) {
+    private static void changeAttr(@NotNull Node node, boolean isSingle) {
         NamedNodeMap attr = node.getAttributes();
         Node nodeattr = attr.getNamedItem("enabled");
         nodeattr.setTextContent(String.valueOf(isSingle));
