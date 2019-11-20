@@ -28,48 +28,12 @@ public class Main {
         name = fileName
                 .replaceAll("\\\\\\^\\\\", "")
                 .replaceAll("\\\\\\^/", "");
-        int s;
+
+        if (args[1] == null) {
+            // Linux test run
+            startTest();
+        } else changeTestType(args[1]);
 //        String osName = System.getProperty("os.name").toLowerCase();
-
-        Process proc;
-        try {
-            // Clean logs
-            proc = Runtime.getRuntime()
-                    .exec("cd /DATA/Results/; rm –f ./*.jtl: rm –f ./*.csv");
-            proc.waitFor();
-            proc.destroy();
-
-            changeTestType("single");
-
-            // Start oneThread test
-            proc = Runtime.getRuntime()
-                    .exec("nohup jmeter -n -t " + name);
-            proc.waitFor();
-            proc.destroy();
-
-            // Check logs for errors
-            proc = Runtime.getRuntime()
-                    .exec("cat nohup.out | egrep “Err:.+Active: 0” | tail –n 1 | awk '{print $15}'");
-            BufferedReader br = new BufferedReader(
-                    new InputStreamReader(proc.getInputStream()));
-            s = Integer.parseInt(br.readLine());
-            proc.waitFor();
-            proc.destroy();
-
-            // Run multiThread test
-            if (s == 0) {
-                changeTestType("multi");
-
-                proc = Runtime.getRuntime()
-                        .exec("nohup jmeter -n -t " + name + " -r &");
-                proc.waitFor();
-                proc.destroy();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
 
     private static void changeTestType(String testType) {
@@ -109,7 +73,7 @@ public class Main {
                             Node node1 = list1.item(j);
                             if ("stringProp".equals(node1.getNodeName())) {
                                 String name1 = name.substring(0, name.length() - 4);
-                                node1.setTextContent("/DATA/Results/${__strReplace(" + name1 + "_" + testType + ",&quot;.jmx&quot;,&quot;&quot;,)}.xml");
+                                node1.setTextContent("/DATA/Results/${__strReplace(" + name1 + "_" + testType + ",\".jmx\",\"\",)}.xml");
                             }
                         }
                     }
@@ -130,6 +94,50 @@ public class Main {
             ioe.printStackTrace();
         } catch (SAXException sae) {
             sae.printStackTrace();
+        }
+    }
+
+    private static void startTest() {
+
+        Process proc;
+
+        try {
+            // Clean logs
+            proc = Runtime.getRuntime()
+                    .exec("cd /DATA/Results/; rm –f ./*.jtl: rm –f ./*.csv");
+            proc.waitFor();
+            proc.destroy();
+
+            changeTestType("single");
+
+            // Start oneThread test
+            proc = Runtime.getRuntime()
+                    .exec("nohup jmeter -n -t " + name);
+            proc.waitFor();
+            proc.destroy();
+
+            // Check logs for errors
+            proc = Runtime.getRuntime()
+                    .exec("cat nohup.out | egrep \"Err:.+Active: 0\" | tail –n 1 | awk '{print $15}'");
+            BufferedReader br = new BufferedReader(
+                    new InputStreamReader(proc.getInputStream()));
+            int s = Integer.parseInt(br.readLine());
+            proc.waitFor();
+            proc.destroy();
+
+            // Run multiThread test
+            if (s == 0) {
+                changeTestType("multi");
+
+                proc = Runtime.getRuntime()
+                        .exec("nohup jmeter -n -t " + name + " -r &");
+                proc.waitFor();
+                proc.destroy();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
