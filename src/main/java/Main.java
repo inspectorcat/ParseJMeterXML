@@ -22,6 +22,7 @@ public class Main {
     private static boolean isSingle;
     private static String fileName;
     private static String name;
+    private static String name1;
 
     public static void main(String[] args) {
         fileName = args[0];
@@ -29,6 +30,7 @@ public class Main {
         name = fileName
                 .replaceAll("\\\\\\^\\\\", "")
                 .replaceAll("\\\\\\^/", "");
+        name1 = name.substring(0, name.length() - 4);
 
         if (args.length == 1) {
             // Linux test run
@@ -41,42 +43,37 @@ public class Main {
 
         if (testType.equals("single")) isSingle = true;
         else if (testType.equals("multi")) isSingle = false;
-        else try {
-                throw new Exception();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        else throw new IllegalArgumentException();
 
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             DocumentBuilder db = dbf.newDocumentBuilder();
             Document doc = db.parse(fileName);
-
+            // Moving to <jmeterTestPlan>
+            //               <hashTree>
+            //                   <hashTree>
+            //                       ...
             Node hashTree = doc.getElementsByTagName("hashTree").item(1);
-
+            // Load list of nodes
             NodeList list = hashTree.getChildNodes();
-
+            // Loop to find needed nodes
             for (int i = 0; i < list.getLength(); i++) {
                 Node node = list.item(i);
 
                 if ("ThreadGroup".equals(node.getNodeName())) {
-                    changeAttr(node, isSingle);
+                    changeEnableAtt(node, isSingle);
                 } else if ("kg.apc.jmeter.threads.UltimateThreadGroup".equals(node.getNodeName())) {
-                    changeAttr(node, !isSingle);
+                    changeEnableAtt(node, !isSingle);
                 } else if ("BackendListener".equals(node.getNodeName())) {
-                    changeAttr(node, !isSingle);
+                    changeEnableAtt(node, !isSingle);
                 } else if ("ResultCollector".equals(node.getNodeName())) {
                     NamedNodeMap attr = node.getAttributes();
                     Node nodeattr = attr.getNamedItem("testname");
                     if (nodeattr.getNodeValue().equals("View Results Tree")) {
-                        NodeList list1 = node.getChildNodes();
-                        for (int j = 0; j < list1.getLength(); j++) {
-                            Node node1 = list1.item(j);
-                            if ("stringProp".equals(node1.getNodeName())) {
-                                String name1 = name.substring(0, name.length() - 4);
-                                node1.setTextContent("/DATA/Results/${__strReplace(" + name1 + "_" + testType + ",\".jmx\",\"\",)}.xml");
-                            }
-                        }
+                        changeTestNameContent(testType, node, "xml");
+                    }
+                    if (nodeattr.getNodeValue().equals("Summary Report")) {
+                        changeTestNameContent(testType, node, "csv");
                     }
                 }
             }
@@ -95,6 +92,17 @@ public class Main {
             ioe.printStackTrace();
         } catch (SAXException sae) {
             sae.printStackTrace();
+        }
+    }
+
+    // Changing content of stringProp depends of current testType attribute
+    private static void changeTestNameContent(@NotNull String testType, Node node, String ext) {
+        NodeList list1 = node.getChildNodes();
+        for (int j = 0; j < list1.getLength(); j++) {
+            Node node1 = list1.item(j);
+            if ("stringProp".equals(node1.getNodeName())) {
+                node1.setTextContent("/DATA/Results/${__strReplace(" + name1 + "_" + testType + ",\".jmx\",\"\",)}." + ext);
+            }
         }
     }
 
@@ -142,7 +150,8 @@ public class Main {
         }
     }
 
-    private static void changeAttr(@NotNull Node node, boolean isSingle) {
+    // Changing visibility of current node
+    private static void changeEnableAtt(@NotNull Node node, boolean isSingle) {
         NamedNodeMap attr = node.getAttributes();
         Node nodeattr = attr.getNamedItem("enabled");
         nodeattr.setTextContent(String.valueOf(isSingle));
